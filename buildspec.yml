@@ -1,0 +1,23 @@
+version: 0.1
+
+phases:
+
+  build:
+
+    commands:
+
+      - mvn clean install
+
+artifacts:
+
+  files:
+
+    - outlet-web-frontend/target/hadoop-map-reduce*.jar
+
+  discard-paths: yes
+
+cache:
+
+  paths:
+
+    - '/root/.m2/**/*'
