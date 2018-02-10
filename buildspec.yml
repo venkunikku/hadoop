@@ -12,7 +12,7 @@ artifacts:
 
   files:
 
-    - outlet-web-frontend/target/hadoop-map-reduce*.jar
+    - target/hadoop-map-reduce*.jar
 
   discard-paths: yes
 
