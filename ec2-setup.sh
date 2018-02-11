@@ -6,7 +6,6 @@ cd /usr/local/hadoop
 sudo wget http://download.nextag.com/apache/hadoop/common/hadoop-2.9.0/hadoop-2.9.0.tar.gz
 sudo tar xvf hadoop-2.9.0.tar.gz
 cd hadoop-2.9.0/etc/hadoop/
-sudo apt install awscli
 sudo apt install awscli -y
 aws s3 sync s3://hadoop-venku/hadoop_config .
 ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa
@@ -18,8 +17,9 @@ sudo apt update
 echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
 echo debconf shared/accepted-oracle-license-v1-1 seen true | sudo debconf-set-selections
 sudo apt-get install oracle-java8-installer -y
-export JAVA_HOME=/usr/lib/jvm/java-8-oracle/
-export PATH=$PATH:$JAVA_HOME/bin
+echo "export JAVA_HOME=/usr/lib/jvm/java-8-oracle/" >> ~/.bashrc
+echo "export HADOOP_HOME=/usr/local/hadoop/hadoop-2.9.0/"
+export PATH=$PATH:$JAVA_HOME/bin:$HADOOP_HOME/sbin:$HADOOP_HOME/bin
 source ~/.profile
 
 
