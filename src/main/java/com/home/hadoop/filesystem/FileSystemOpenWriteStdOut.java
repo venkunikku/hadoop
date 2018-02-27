@@ -14,12 +14,12 @@ public class FileSystemOpenWriteStdOut {
     public static void main(String[] args) throws IOException {
         String url = args[0];
         Configuration conf = new Configuration();
-        System.out.println("Value of conf:"+ conf.toString());
+        System.out.println("Value of conf:" + conf.toString());
         FileSystem fs = FileSystem.get(URI.create(url), conf);
         InputStream in = null;
-        try{
+        try {
             in = fs.open(new Path(url));
-            IOUtils.copyBytes(in,System.out, 4096, false);
+            IOUtils.copyBytes(in, System.out, 4096, false);
         } finally {
             IOUtils.closeStream(in);
         }

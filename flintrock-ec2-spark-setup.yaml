@@ -1,0 +1,24 @@
+provider: ec2
+
+services:
+  spark:
+    version: 2.2.0
+  hdfs:
+      version: 2.7.3
+
+launch:
+  num-slaves: 2
+
+providers:
+  ec2:
+    key-name: hadoop-kp
+    identify-file: /Users/venkuburagadda/hadoop-kp.pem
+    instance-type: t2.micro
+    region: us-east-1
+    ami: ami-a4c7edb2
+    user: ec2-user
+    tenancy: default
+    instance-initiated-shutdown-behavior: terminate
+
+
+# /Users/venkuburagadda/Library/Application Support/Flintrock - Default file is present here.
