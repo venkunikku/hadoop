@@ -74,15 +74,15 @@ public class TopTitles extends Configured implements Tool {
         return jobB.waitForCompletion(true) ? 0 : 1;
     }
 
-    public static String readHDFSFile(String path, Configuration conf) throws IOException{
-        Path pt=new Path(path);
+    public static String readHDFSFile(String path, Configuration conf) throws IOException {
+        Path pt = new Path(path);
         FileSystem fs = FileSystem.get(pt.toUri(), conf);
         FSDataInputStream file = fs.open(pt);
-        BufferedReader buffIn=new BufferedReader(new InputStreamReader(file));
+        BufferedReader buffIn = new BufferedReader(new InputStreamReader(file));
 
         StringBuilder everything = new StringBuilder();
         String line;
-        while( (line = buffIn.readLine()) != null) {
+        while ((line = buffIn.readLine()) != null) {
             everything.append(line);
             everything.append("\n");
         }
@@ -109,7 +109,7 @@ public class TopTitles extends Configured implements Tool {
         String delimiters;
 
         @Override
-        protected void setup(Context context) throws IOException,InterruptedException {
+        protected void setup(Context context) throws IOException, InterruptedException {
 
             Configuration conf = context.getConfiguration();
 
@@ -137,8 +137,8 @@ public class TopTitles extends Configured implements Tool {
     public static class TitleCountReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
         @Override
         public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            int i=0;
-            for(IntWritable each: values){
+            int i = 0;
+            for (IntWritable each : values) {
                 ++i;
             }
             context.write(new Text(key), new IntWritable(i));
@@ -149,18 +149,30 @@ public class TopTitles extends Configured implements Tool {
         private TreeMap<Integer, Text> countToWordMap = new TreeMap<Integer, Text>();
 
         @Override
-        protected void setup(Context context) throws IOException,InterruptedException {
+        protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
         }
 
         @Override
         public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
-            //TODO
+            Integer count = Integer.parseInt(value.toString());
+
+            countToWordMap.put(count, new Text(key));
+
+            if (countToWordMap.size() > 10) {
+                countToWordMap.remove(countToWordMap.firstKey());
+            }
+
         }
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
-            //TODO
+            for (Integer key : countToWordMap.keySet()) {
+                String[] strings = {countToWordMap.get(key).toString(), Integer.toString(key)};
+                TextArrayWritable val = new TextArrayWritable(strings);
+                context.write(NullWritable.get(), val);
+
+            }
         }
     }
 
@@ -168,13 +180,18 @@ public class TopTitles extends Configured implements Tool {
         // TODO
 
         @Override
-        protected void setup(Context context) throws IOException,InterruptedException {
+        protected void setup(Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
         }
 
         @Override
         public void reduce(NullWritable key, Iterable<TextArrayWritable> values, Context context) throws IOException, InterruptedException {
-            //TODO
+            for (TextArrayWritable val : values) {
+                Text[] pair = (Text[]) val.toArray();
+                Text word = pair[0];
+                IntWritable value = new IntWritable(Integer.parseInt(pair[1].toString()));
+                context.write(word, value);
+            }
         }
     }
 }
