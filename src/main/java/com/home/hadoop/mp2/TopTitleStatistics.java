@@ -1,4 +1,7 @@
+package com.home.hadoop.mp2;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -21,19 +24,18 @@ import org.apache.hadoop.util.ToolRunner;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.List;
-import java.util.StringTokenizer;
-import java.util.TreeMap;
+import java.lang.Integer;
+import java.util.*;
 
-public class TopTitles extends Configured implements Tool {
+public class TopTitleStatistics extends Configured implements Tool {
+    public static final Log LOG = LogFactory.getLog(TopTitleStatistics.class);
 
     public static void main(String[] args) throws Exception {
-        int res = ToolRunner.run(new Configuration(), new TopTitles(), args);
+        int res = ToolRunner.run(new Configuration(), new TopTitleStatistics(), args);
         System.exit(res);
     }
 
-
+    @Override
     public int run(String[] args) throws Exception {
         Configuration conf = this.getConf();
         FileSystem fs = FileSystem.get(conf);
@@ -50,18 +52,23 @@ public class TopTitles extends Configured implements Tool {
         FileInputFormat.setInputPaths(jobA, new Path(args[0]));
         FileOutputFormat.setOutputPath(jobA, tmpPath);
 
-        jobA.setJarByClass(TopTitles.class);
+        jobA.setJarByClass(TopTitleStatistics.class);
         jobA.waitForCompletion(true);
 
-        Job jobB = Job.getInstance(conf, "Top Titles");
+
+        FileSystem fsJobB = FileSystem.get(conf);
+        Path outputPath = new Path(args[1]);
+        fsJobB.delete(outputPath, true);
+
+        Job jobB = Job.getInstance(conf, "Top Titles Statistics");
         jobB.setOutputKeyClass(Text.class);
         jobB.setOutputValueClass(IntWritable.class);
 
         jobB.setMapOutputKeyClass(NullWritable.class);
         jobB.setMapOutputValueClass(TextArrayWritable.class);
 
-        jobB.setMapperClass(TopTitlesMap.class);
-        jobB.setReducerClass(TopTitlesReduce.class);
+        jobB.setMapperClass(TopTitlesStatMap.class);
+        jobB.setReducerClass(TopTitlesStatReduce.class);
         jobB.setNumReduceTasks(1);
 
         FileInputFormat.setInputPaths(jobB, tmpPath);
@@ -70,7 +77,7 @@ public class TopTitles extends Configured implements Tool {
         jobB.setInputFormatClass(KeyValueTextInputFormat.class);
         jobB.setOutputFormatClass(TextOutputFormat.class);
 
-        jobB.setJarByClass(TopTitles.class);
+        jobB.setJarByClass(TopTitleStatistics.class);
         return jobB.waitForCompletion(true) ? 0 : 1;
     }
 
@@ -123,14 +130,14 @@ public class TopTitles extends Configured implements Tool {
 
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
-            StringTokenizer token = new StringTokenizer(this.delimiters);
+            String line = value.toString();
+            StringTokenizer token = new StringTokenizer(line, delimiters);
             while (token.hasMoreElements()) {
                 String word = token.nextToken().toLowerCase();
-                if (!this.stopWords.contains(word)) {
+                if (!stopWords.contains(word)) {
                     context.write(new Text(word), new IntWritable(1));
                 }
             }
-
         }
     }
 
@@ -139,14 +146,14 @@ public class TopTitles extends Configured implements Tool {
         public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
             int i = 0;
             for (IntWritable each : values) {
-                ++i;
+                i += each.get();
             }
             context.write(new Text(key), new IntWritable(i));
         }
     }
 
-    public static class TopTitlesMap extends Mapper<Text, Text, NullWritable, TextArrayWritable> {
-        private TreeMap<Integer, Text> countToWordMap = new TreeMap<Integer, Text>();
+    public static class TopTitlesStatMap extends Mapper<Text, Text, NullWritable, TextArrayWritable> {
+        private TreeSet<Pair<Integer, String>> countToWordMap = new TreeSet<Pair<Integer, String>>();
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
@@ -155,20 +162,21 @@ public class TopTitles extends Configured implements Tool {
 
         @Override
         public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
-            Integer count = Integer.parseInt(value.toString());
+            Integer count = Integer.parseInt(value.toString()); //count from previous run for each word
+            String word = key.toString(); // Word
 
-            countToWordMap.put(count, new Text(key));
+            countToWordMap.add(new Pair<Integer, String>(count, word)); // create a new pair and add to the TreeSet
 
             if (countToWordMap.size() > 10) {
-                countToWordMap.remove(countToWordMap.firstKey());
+                countToWordMap.remove(countToWordMap.first());
             }
-
         }
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
-            for (Integer key : countToWordMap.keySet()) {
-                String[] strings = {countToWordMap.get(key).toString(), Integer.toString(key)};
+            for (Pair<Integer, String> each : countToWordMap) {
+                String[] strings = {each.second, each.first.toString()}; // String array which is TextArrayWritable.
+                // These value of second and first is from pair cls
                 TextArrayWritable val = new TextArrayWritable(strings);
                 context.write(NullWritable.get(), val);
 
@@ -176,8 +184,8 @@ public class TopTitles extends Configured implements Tool {
         }
     }
 
-    public static class TopTitlesReduce extends Reducer<NullWritable, TextArrayWritable, Text, IntWritable> {
-        // TODO
+    public static class TopTitlesStatReduce extends Reducer<NullWritable, TextArrayWritable, Text, IntWritable> {
+
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
@@ -186,15 +194,74 @@ public class TopTitles extends Configured implements Tool {
 
         @Override
         public void reduce(NullWritable key, Iterable<TextArrayWritable> values, Context context) throws IOException, InterruptedException {
+            Integer sum = 0, mean, max = 0, min = Integer.MAX_VALUE, var;
+            List<TextArrayWritable> cache = new ArrayList<TextArrayWritable>();
+
+            int total = 10;
+
+            //sum
             for (TextArrayWritable val : values) {
                 Text[] pair = (Text[]) val.toArray();
                 Text word = pair[0];
-                IntWritable value = new IntWritable(Integer.parseInt(pair[1].toString()));
-                context.write(word, value);
+                String count = pair[1].toString();
+                int value = Integer.parseInt(count);
+                System.out.println("******************" + value);
+                sum += value;
+                max = Math.max(value, max);
+                min = Math.min(value, min);
+
+                // new have to create new object.
+                String[] strings = {word.toString(), count};
+                TextArrayWritable newObject = new TextArrayWritable(strings);
+                cache.add(newObject);
+
             }
+            mean = sum / total;
+            int squareSum = 0;
+
+            for (TextArrayWritable val : cache) {
+                Text[] pair = (Text[]) val.toArray();
+                Text word = pair[0];
+                int value = Integer.parseInt(pair[1].toString());
+                System.out.println("******************22" + value);
+
+
+                int differenceSquare = mean - value;
+                squareSum = squareSum + (int) Math.pow(differenceSquare, 2);
+
+            }
+            var = squareSum / total;
+
+            context.write(new Text("Mean"), new IntWritable(mean));
+            context.write(new Text("Sum"), new IntWritable(sum));
+            context.write(new Text("Min"), new IntWritable(min));
+            context.write(new Text("Max"), new IntWritable(max));
+            context.write(new Text("Var"), new IntWritable(var));
+
         }
+        /*@Override
+        protected void cleanup(Context context) throws IOException, InterruptedException {
+            Integer var;
+            int squareSum = 0;
+            for (TextArrayWritable val : cache) {
+                Text[] pair = (Text[]) val.toArray();
+                Text word = pair[0];
+                int value = Integer.parseInt(pair[1].toString());
+                System.out.println("******************22" + value);
+
+
+                int differenceSquare = meanTotal - value;
+                squareSum = squareSum + (int) Math.pow(differenceSquare, 2);
+
+            }
+            var = squareSum/total;
+
+            context.write(new Text("Var"), new IntWritable(var));
+        }*/
     }
+
 }
+
 
 class Pair<A extends Comparable<? super A>,
         B extends Comparable<? super B>>
@@ -214,6 +281,7 @@ class Pair<A extends Comparable<? super A>,
         return new Pair<A, B>(first, second);
     }
 
+    @Override
     public int compareTo(Pair<A, B> o) {
         int cmp = o == null ? 1 : (this.first).compareTo(o.first);
         return cmp == 0 ? (this.second).compareTo(o.second) : cmp;
