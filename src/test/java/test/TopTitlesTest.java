@@ -1,5 +1,6 @@
 package test;
 
+import com.home.hadoop.mp2.toptiles.TopTitles;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;

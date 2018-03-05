@@ -1,4 +1,4 @@
-package com.home.hadoop.mp2;
+package com.home.hadoop.mp2.toptiles.toptitlesstats;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -205,7 +205,6 @@ public class TopTitleStatistics extends Configured implements Tool {
                 Text word = pair[0];
                 String count = pair[1].toString();
                 int value = Integer.parseInt(count);
-                System.out.println("******************" + value);
                 sum += value;
                 max = Math.max(value, max);
                 min = Math.min(value, min);
@@ -223,7 +222,6 @@ public class TopTitleStatistics extends Configured implements Tool {
                 Text[] pair = (Text[]) val.toArray();
                 Text word = pair[0];
                 int value = Integer.parseInt(pair[1].toString());
-                System.out.println("******************22" + value);
 
 
                 int differenceSquare = mean - value;
