@@ -7,7 +7,7 @@ services:
       version: 2.7.3
 
 launch:
-  num-slaves: 2
+  num-slaves: 1
 
 providers:
   ec2:
@@ -22,3 +22,8 @@ providers:
 
 
 # /Users/venkuburagadda/Library/Application Support/Flintrock - Default file is present here.
+# cd /Users/venkuburagadda/Library/Application\ Support/Flintrock/
+# Everytime you run this command you have set up following things.
+# export AWS_ACCESS_KEY_ID=
+# export AWS_SECRET_ACCESS_KEY=
+# flintrock launch spark-venku-cluster --ec2-key-name hadoop-kp --ec2-identity-file ~/hadoop-kp.pem
